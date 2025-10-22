@@ -1,59 +1,88 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // <- NUEVO sistema de input
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed = 4f;
-    public float rotationSpeed = 10f;
-    public float gravity = -9.81f;
+    public float moveSpeed = 4f, rotationSpeed = 12f, gravity = -9.81f;
+    public float jumpForce = 4.5f;
 
-    private CharacterController controller;
-    private Animator anim;
-    private Vector3 velocity;
+    CharacterController controller;
+    Animator anim;
+    Vector3 vel;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        anim = GetComponent<Animator>();
+        anim = GetComponentInChildren<Animator>();
     }
 
     void Update()
     {
+        // -------- entrada flechas/WASD --------
         float x = 0f, z = 0f;
-
-        // WASD
+#if ENABLE_INPUT_SYSTEM
         if (Keyboard.current != null)
         {
+            x += Keyboard.current.leftArrowKey.isPressed ? -1 : 0;
+            x += Keyboard.current.rightArrowKey.isPressed ? 1 : 0;
+            z += Keyboard.current.downArrowKey.isPressed ? -1 : 0;
+            z += Keyboard.current.upArrowKey.isPressed ? 1 : 0;
+
             x += Keyboard.current.aKey.isPressed ? -1 : 0;
-            x += Keyboard.current.dKey.isPressed ?  1 : 0;
+            x += Keyboard.current.dKey.isPressed ? 1 : 0;
             z += Keyboard.current.sKey.isPressed ? -1 : 0;
-            z += Keyboard.current.wKey.isPressed ?  1 : 0;
-
-            // Flechas
-            x += Keyboard.current.leftArrowKey.isPressed  ? -1 : 0;
-            x += Keyboard.current.rightArrowKey.isPressed ?  1 : 0;
-            z += Keyboard.current.downArrowKey.isPressed  ? -1 : 0;
-            z += Keyboard.current.upArrowKey.isPressed    ?  1 : 0;
+            z += Keyboard.current.wKey.isPressed ? 1 : 0;
         }
+#else
+        x = Input.GetAxisRaw("Horizontal");
+        z = Input.GetAxisRaw("Vertical");
+#endif
+        Vector3 dir = new Vector3(x, 0, z).normalized;
+        bool moving = dir.sqrMagnitude > 0.01f;
 
-        Vector3 dir = new Vector3(Mathf.Clamp(x, -1, 1), 0f, Mathf.Clamp(z, -1, 1)).normalized;
-        bool isMoving = dir.sqrMagnitude > 0.01f;
+        // anim caminar
+        anim.SetBool("caminando", moving);
 
-        // Animación
-        if (anim != null) anim.SetBool("isWalking", isMoving);
-
-        // Movimiento + rotación
-        if (isMoving)
+        // rotar y mover
+        if (moving)
         {
-            Quaternion targetRot = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            Quaternion target = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, target, rotationSpeed * Time.deltaTime);
             controller.Move(dir * moveSpeed * Time.deltaTime);
         }
 
-        // Gravedad
-        if (controller.isGrounded && velocity.y < 0f) velocity.y = -2f;
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        // salto (espacio) solo animación; el impulso físico es opcional
+        bool jumpPressed =
+#if ENABLE_INPUT_SYSTEM
+            Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+#else
+            Input.GetKeyDown(KeyCode.Space);
+#endif
+        if (jumpPressed && controller.isGrounded)
+        {
+            anim.SetTrigger("salto");
+            vel.y = jumpForce; // quita esta línea si no quieres salto físico
+        }
+
+        // gravedad
+        if (controller.isGrounded && vel.y < 0) vel.y = -2f;
+        vel.y += gravity * Time.deltaTime;
+        controller.Move(vel * Time.deltaTime);
+
+        // giros / victoria / derrota (teclas de prueba)
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) anim.SetTrigger("giroIzq");
+        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) anim.SetTrigger("giroDch");
+        if (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame) anim.SetTrigger("victoria");
+        if (Keyboard.current != null && Keyboard.current.dKey.wasPressedThisFrame) anim.SetTrigger("derrota");
+#else
+        if (Input.GetKeyDown(KeyCode.Q)) anim.SetTrigger("giroIzq");
+        if (Input.GetKeyDown(KeyCode.E)) anim.SetTrigger("giroDch");
+        if (Input.GetKeyDown(KeyCode.V)) anim.SetTrigger("victoria");
+        if (Input.GetKeyDown(KeyCode.D)) anim.SetTrigger("derrota");
+#endif
     }
 }
