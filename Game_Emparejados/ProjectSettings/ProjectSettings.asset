@@ -914,8 +914,8 @@ PlayerSettings:
   editorAssembliesCompatibilityLevel: 1
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: Game_Emparejados
-  metroPackageVersion: 
+  metroPackageName: GameEmparejados
+  metroPackageVersion: 1.0.0.0
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
@@ -923,7 +923,7 @@ PlayerSettings:
   metroCertificateNotAfter: 0000000000000000
   metroApplicationDescription: Game_Emparejados
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: Game_Emparejados
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0
@@ -991,7 +991,7 @@ PlayerSettings:
   qnxGraphicConfPath: 
   apiCompatibilityLevel: 6
   captureStartupLogs: {}
-  activeInputHandler: 0
+  activeInputHandler: 1
   windowsGamepadBackendHint: 0
   cloudProjectId: b95c0f70-ed54-4985-867f-2c55714b1bc0
   framebufferDepthMemorylessMode: 0

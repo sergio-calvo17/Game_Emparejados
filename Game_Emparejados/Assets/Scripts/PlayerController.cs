@@ -1,11 +1,12 @@
 using UnityEngine;
+using UnityEngine.InputSystem; // <- NUEVO sistema
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed = 4f;      // Velocidad de movimiento
-    public float rotationSpeed = 10f; // Velocidad de giro
-    public float gravity = -9.81f;    // Gravedad simple
+    public float moveSpeed = 4f;
+    public float rotationSpeed = 10f;
+    public float gravity = -9.81f;
 
     private CharacterController controller;
     private Animator anim;
@@ -19,33 +20,32 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // Detectar movimiento en los ejes horizontal (A/D) y vertical (W/S)
-        float x = Input.GetAxisRaw("Horizontal");
-        float z = Input.GetAxisRaw("Vertical");
+        // Leer WASD / flechas con el nuevo sistema
+        float x = 0f, z = 0f;
 
-        // Crear vector de direccion segun camara o mundo
-        Vector3 direction = new Vector3(x, 0f, z).normalized;
+        if (Keyboard.current != null) {
+            x = (Keyboard.current.aKey.isPressed ? -1 : 0) + (Keyboard.current.dKey.isPressed ? 1 : 0);
+            z = (Keyboard.current.sKey.isPressed ? -1 : 0) + (Keyboard.current.wKey.isPressed ? 1 : 0);
+        }
 
-        // Hay movimiento?
-        bool isMoving = direction.magnitude > 0.1f;
+        // También admite flechas:
+        if (Keyboard.current != null) {
+            x += (Keyboard.current.leftArrowKey.isPressed ? -1 : 0) + (Keyboard.current.rightArrowKey.isPressed ? 1 : 0);
+            z += (Keyboard.current.downArrowKey.isPressed ? -1 : 0) + (Keyboard.current.upArrowKey.isPressed ? 1 : 0);
+        }
 
-        // Actualizar animacion
+        Vector3 dir = new Vector3(Mathf.Clamp(x, -1, 1), 0f, Mathf.Clamp(z, -1, 1)).normalized;
+        bool isMoving = dir.sqrMagnitude > 0.01f;
         anim.SetBool("isWalking", isMoving);
 
         if (isMoving)
         {
-            // Calcular hacia donde mirar (rotacion suave)
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-
-            // Mover en la direccion
-            controller.Move(direction * moveSpeed * Time.deltaTime);
+            Quaternion target = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, target, rotationSpeed * Time.deltaTime);
+            controller.Move(dir * moveSpeed * Time.deltaTime);
         }
 
-        // Aplicar gravedad (mantener pegado al suelo)
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
-
+        if (controller.isGrounded && velocity.y < 0f) velocity.y = -2f;
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
