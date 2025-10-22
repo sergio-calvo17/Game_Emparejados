@@ -6,47 +6,51 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed = 4f, rotationSpeed = 12f, gravity = -9.81f;
-    public float jumpForce = 4.5f;
+    public float moveSpeed = 4f;
+    public float rotationSpeed = 10f;
+    public float gravity = 0.01f;
+    public float jumpForce = 4f;
 
     CharacterController controller;
     Animator anim;
-    Vector3 vel;
+    Vector3 velocity;
 
-    void Start()
+    void Awake()
     {
         controller = GetComponent<CharacterController>();
         anim = GetComponentInChildren<Animator>();
     }
 
+    void Start()
+    {
+        // NO tocar la posición aquí por ahora.
+        // Asegúrate en el Inspector que el Player esté en (0, 1.2, 0) aprox.
+    }
+
     void Update()
     {
-        // -------- entrada flechas/WASD --------
         float x = 0f, z = 0f;
 #if ENABLE_INPUT_SYSTEM
         if (Keyboard.current != null)
         {
-            x += Keyboard.current.leftArrowKey.isPressed ? -1 : 0;
-            x += Keyboard.current.rightArrowKey.isPressed ? 1 : 0;
-            z += Keyboard.current.downArrowKey.isPressed ? -1 : 0;
-            z += Keyboard.current.upArrowKey.isPressed ? 1 : 0;
+            if (Keyboard.current.leftArrowKey.isPressed)  x -= 1f;
+            if (Keyboard.current.rightArrowKey.isPressed) x += 1f;
+            if (Keyboard.current.upArrowKey.isPressed)    z += 1f;
+            if (Keyboard.current.downArrowKey.isPressed)  z -= 1f;
 
-            x += Keyboard.current.aKey.isPressed ? -1 : 0;
-            x += Keyboard.current.dKey.isPressed ? 1 : 0;
-            z += Keyboard.current.sKey.isPressed ? -1 : 0;
-            z += Keyboard.current.wKey.isPressed ? 1 : 0;
+            if (Keyboard.current.aKey.isPressed) x -= 1f;
+            if (Keyboard.current.dKey.isPressed) x += 1f;
+            if (Keyboard.current.wKey.isPressed) z += 1f;
+            if (Keyboard.current.sKey.isPressed) z -= 1f;
         }
 #else
         x = Input.GetAxisRaw("Horizontal");
         z = Input.GetAxisRaw("Vertical");
 #endif
-        Vector3 dir = new Vector3(x, 0, z).normalized;
+        Vector3 dir = new Vector3(x, 0f, z).normalized;
         bool moving = dir.sqrMagnitude > 0.01f;
+        if (anim) anim.SetBool("caminando", moving);
 
-        // anim caminar
-        anim.SetBool("caminando", moving);
-
-        // rotar y mover
         if (moving)
         {
             Quaternion target = Quaternion.LookRotation(dir);
@@ -54,7 +58,7 @@ public class PlayerController : MonoBehaviour
             controller.Move(dir * moveSpeed * Time.deltaTime);
         }
 
-        // salto (espacio) solo animación; el impulso físico es opcional
+        // Salto (Espacio)
         bool jumpPressed =
 #if ENABLE_INPUT_SYSTEM
             Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
@@ -63,26 +67,13 @@ public class PlayerController : MonoBehaviour
 #endif
         if (jumpPressed && controller.isGrounded)
         {
-            anim.SetTrigger("salto");
-            vel.y = jumpForce; // quita esta línea si no quieres salto físico
+            if (anim) anim.SetTrigger("salto");
+            velocity.y = jumpForce;
         }
 
-        // gravedad
-        if (controller.isGrounded && vel.y < 0) vel.y = -2f;
-        vel.y += gravity * Time.deltaTime;
-        controller.Move(vel * Time.deltaTime);
-
-        // giros / victoria / derrota (teclas de prueba)
-#if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) anim.SetTrigger("giroIzq");
-        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) anim.SetTrigger("giroDch");
-        if (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame) anim.SetTrigger("victoria");
-        if (Keyboard.current != null && Keyboard.current.dKey.wasPressedThisFrame) anim.SetTrigger("derrota");
-#else
-        if (Input.GetKeyDown(KeyCode.Q)) anim.SetTrigger("giroIzq");
-        if (Input.GetKeyDown(KeyCode.E)) anim.SetTrigger("giroDch");
-        if (Input.GetKeyDown(KeyCode.V)) anim.SetTrigger("victoria");
-        if (Input.GetKeyDown(KeyCode.D)) anim.SetTrigger("derrota");
-#endif
+        // Gravedad
+        if (controller.isGrounded && velocity.y < 0f) velocity.y = -2f;
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
     }
 }
