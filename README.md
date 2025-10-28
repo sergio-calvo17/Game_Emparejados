@@ -1,13 +1,11 @@
-Emparejados es un videojuego de memoria inspirado en Memory Match - Mario Party, desarrollado en Unity. El jugador debe emparejar cartas con figuras geométricas y el objetivo es encontrar todos los pares antes de que se acabe el tiempo, mientras disfruta de efectos visuales y sonoros dinámicos que refuerzan la experiencia de juego.
+Emparejados is a memory-based video game inspired by Memory Match – Mario Party, developed in Unity.
+The player must match cards with geometric shapes, aiming to find all the pairs before time runs out, while enjoying dynamic visual and sound effects that enhance the overall gameplay experience.
 
-🕹️ Instrucciones básicas
+🕹️ Basic Instructions
 
-Moverse: Flechas del teclado (↑ ↓ ← → | w a s d)
+Move: Arrow keys (↑ ↓ ← →) or W A S D
+Flip card: Spacebar
+Pause/Resume game: Key P
 
-Revelar carta: Barra espaciadora
-
-Pausar/Reanudar juego: Tecla P
-
-Encuentra las parejas de cartas iguales antes de que el temporizador llegue a cero.
-
-Si aciertas, las cartas permanecerán descubiertas; si fallas, se voltearán nuevamente.
+Find all matching pairs before the timer reaches zero.
+If you match correctly, the cards will remain face up; if not, they will flip back down.
