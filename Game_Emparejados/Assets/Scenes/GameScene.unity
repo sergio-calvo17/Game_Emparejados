@@ -1216,7 +1216,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2330744542893513852, guid: 36a0cc68bd3484f4e83e325fdddc2ca5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 3.6256409
+      value: 3.6
       objectReference: {fileID: 0}
     - target: {fileID: 2330744542893513852, guid: 36a0cc68bd3484f4e83e325fdddc2ca5, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1224,7 +1224,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2330744542893513852, guid: 36a0cc68bd3484f4e83e325fdddc2ca5, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -6.436638
+      value: -6.4
       objectReference: {fileID: 0}
     - target: {fileID: 2330744542893513852, guid: 36a0cc68bd3484f4e83e325fdddc2ca5, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1286,8 +1286,8 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1643001483}
   m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 92f137cf4dd9a3b4bad6b33183dfb80e, type: 2}
+  m_Avatar: {fileID: 9000000, guid: 80450bc9fbb467048b4711a392cff386, type: 3}
+  m_Controller: {fileID: 9100000, guid: 526eb94f7557ea64aa100b6b7354e32a, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 1
@@ -1308,13 +1308,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 1643001483}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 648dbb589c64a0f4f94ca2e4b246069f, type: 3}
+  m_Script: {fileID: 11500000, guid: 6c2240682c59d0a4eb1e45ea7b5374aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 4
-  rotationSpeed: 12
+  rotationSpeed: 10
   gravity: -9.81
-  jumpForce: 4.5
+  jumpForce: 8
+  maxJumps: 2
+  anim: {fileID: 0}
+  groundCheckDistance: 0.5
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!143 &3339270980977672409
 CharacterController:
   m_ObjectHideFlags: 0
@@ -1333,13 +1339,13 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 2
-  m_Radius: 0.5
+  m_Height: 1.8
+  m_Radius: 0.45
   m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
+  m_StepOffset: 0.01
+  m_SkinWidth: 0.01
   m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Center: {x: 0, y: 0.9, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
