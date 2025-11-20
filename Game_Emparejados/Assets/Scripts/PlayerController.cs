@@ -7,19 +7,15 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    // =======================================================================
-    // VARIABLES AJUSTABLES
-    // =======================================================================
     [Header("Movimiento")]
-    public float moveSpeed = 4f;    
+    public float moveSpeed = 2f;    // Velocidad de movimiento más lenta
     public float rotationSpeed = 10f; 
-    
+
     [Header("Gravedad y Salto")] 
-    public float gravity = -50f;    // Valor de gravedad ajustado para que el personaje caiga rápido.
-    public float jumpForce = 5f;    // Fuerza de salto baja para poca altura.
-    public int maxJumps = 2;        // Número máximo de saltos (doble salto).
-    private int jumpCount;          // Cuenta de saltos para el doble salto.
-    
+    public float gravity = -20f;    // Gravedad ajustada para que el personaje caiga a un ritmo moderado
+    public float jumpForce = 3f;    // Fuerza de salto baja para un salto leve
+    private bool isGrounded;        // Para verificar si el personaje está en el suelo
+
     [Header("Referencias")]
     public Animator anim;           // Referencia al Animator para animaciones
     private CharacterController controller;  // Componente CharacterController
@@ -31,9 +27,6 @@ public class PlayerController : MonoBehaviour
 
     private bool isPaused = false; // Para controlar el estado de pausa
     
-    // =======================================================================
-    // START
-    // =======================================================================
     void Start()
     {
         controller = GetComponent<CharacterController>(); 
@@ -43,9 +36,6 @@ public class PlayerController : MonoBehaviour
         Cursor.visible = false;
     }
 
-    // =======================================================================
-    // UPDATE
-    // =======================================================================
     void Update()
     {
         CheckPauseInput();
@@ -92,25 +82,27 @@ public class PlayerController : MonoBehaviour
         controller.Move(dir * moveSpeed * Time.deltaTime);
 
         // 3. Verificación del suelo y aplicación de gravedad
-        bool isGrounded = controller.isGrounded; 
+        isGrounded = controller.isGrounded; // Usamos la función integrada de CharacterController para verificar si está en el suelo
 
         if (isGrounded)
         {
-            jumpCount = 0;  // Restablecemos la cuenta de saltos cuando tocamos el suelo
             if (velocity.y < 0f)
                 velocity.y = -2f;  // Para mantener al personaje pegado al suelo, evitamos que se quede flotando
         }
 
-        // 4. Saltar con la tecla Espacio
-        if (jumpPressed && jumpCount < maxJumps)  // Si el jugador presiona espacio y hay saltos disponibles
+        // 4. Saltar con la tecla Espacio (solo cuando está en el suelo)
+        if (jumpPressed && isGrounded)  // Si el jugador presiona espacio y está en el suelo
         {
             anim.SetTrigger("salto");  // Activamos la animación de salto
-            velocity.y = jumpForce;     // Aplicamos la fuerza de salto
-            jumpCount++;                // Incrementamos la cuenta de saltos
+            velocity.y = jumpForce;    // Aplicamos la fuerza de salto
         }
 
         // 5. Aplicar la gravedad
-        velocity.y += gravity * Time.deltaTime;  // Aplicamos gravedad para que el personaje caiga
+        if (!isGrounded)
+        {
+            // Si no está en el suelo, aplicamos la gravedad para que el personaje caiga
+            velocity.y += gravity * Time.deltaTime;  // Aplicamos gravedad para que el personaje caiga
+        }
 
         controller.Move(velocity * Time.deltaTime); // Movemos al personaje con la gravedad aplicada
 
