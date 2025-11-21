@@ -9,7 +9,7 @@ public class PlayerController : MonoBehaviour
 {
     // --- Variables Configurables ---
     [Header("Movimiento")]
-    public float moveSpeed = 5f;
+    public float moveSpeed = 15f; 
     public float rotationSpeed = 500f;
 
     [Header("Gravedad y Salto")]
@@ -20,7 +20,7 @@ public class PlayerController : MonoBehaviour
     [Header("Referencias")]
     public Animator anim;
     private CharacterController controller;
-    private Vector3 velocity; // Vector ÚNICO para movimiento total
+    private Vector3 velocity; // Vector de movimiento
 
     private bool isPaused = false;
 
@@ -43,9 +43,9 @@ public class PlayerController : MonoBehaviour
         CheckPauseInput();
         if (isPaused) return;
 
-        // ================================
-        //      INPUT
-        // ================================
+        // =====================================
+        //  INPUT
+        // =====================================
         float x = 0f, z = 0f;
         bool jumpPressed = false;
         bool interactPressed = false;
@@ -70,75 +70,77 @@ public class PlayerController : MonoBehaviour
         interactPressed = Input.GetKeyDown(KeyCode.Return);
 #endif
 
-        // ================================
-        //      MOVIMIENTO HORIZONTAL Y ROTACIÓN
-        // ================================
         Vector3 dir = new Vector3(x, 0f, z).normalized;
         bool isMoving = dir.sqrMagnitude > 0.01f;
-        
         bool isGrounded = controller.isGrounded;
 
-        // --- LÓGICA CLAVE: RESTRICCIÓN DE MOVIMIENTO AÉREO ---
+        // ⭐ CORRECCIÓN CLAVE: Reseteamos la velocidad horizontal al inicio del frame.
+        // Solo se rellenará si estamos en el suelo (ver abajo).
+        velocity.x = 0;
+        velocity.z = 0;
+
+        // =====================================
+        //  BLOQUEAR MOVIMIENTO EN EL AIRE
+        // =====================================
         if (isGrounded)
         {
-            // Resetear velocidad vertical al tocar el suelo
+            anim.SetBool("enElAire", false);
+
             if (ySpeed < 0)
-                ySpeed = -2f; 
-            
-            // 1. Aplicar movimiento horizontal y rotación solo en el suelo
-            velocity.x = dir.x * moveSpeed;
-            velocity.z = dir.z * moveSpeed;
-            
+                ySpeed = -2f;
+
+            // Movimiento horizontal y rotación SOLO en el suelo
+            velocity.x = dir.x * moveSpeed; // Se establece la velocidad horizontal aquí
+            velocity.z = dir.z * moveSpeed; // Y solo aquí.
+
             if (isMoving)
             {
                 Quaternion targetRot = Quaternion.LookRotation(dir);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
             }
 
-            // 2. Salto solo en el suelo
+            // SALTO
             if (jumpPressed)
             {
                 anim.SetTrigger("salto");
+                anim.SetBool("enElAire", true); 
                 ySpeed = jumpForce;
+
+                // ⭐ EXTRA: Forzamos la detención si aún hay inercia después de un frame.
+                velocity.x = 0; 
+                velocity.z = 0; 
             }
-        } 
-        else // Si está en el aire (no isGrounded)
-        {
-            // 1. DETENER MOVIMIENTO HORIZONTAL: Aseguramos que la velocidad horizontal sea CERO.
-            velocity.x = 0; 
-            velocity.z = 0; 
-
-            // 2. NO permitir rotación.
         }
-        
-        // Animación: 'caminando' solo se activa si hay input de movimiento Y está en el suelo
-        anim.SetBool("caminando", isMoving && isGrounded); 
+        else // isGrounded == false (en el aire)
+        {
+            anim.SetBool("enElAire", true);
+            // velocity.x y velocity.z ya son 0 por el reseteo al inicio del Update.
+        }
 
-        // ================================
-        //      GRAVEDAD Y APLICAR MOVIMIENTO
-        // ================================
-        
-        // Aplicar gravedad continuamente
+        // Animación caminar: solo en suelo y con input
+        anim.SetBool("caminando", isMoving && isGrounded);
+
+        // =====================================
+        //  GRAVEDAD Y MOVIMIENTO VERTICAL
+        // =====================================
         ySpeed += gravity * Time.deltaTime;
-        
-        // Asignar movimiento vertical al vector 'velocity'
-        velocity.y = ySpeed; 
+        velocity.y = ySpeed;
 
-        // Mover el CharacterController
-        controller.Move(velocity * Time.deltaTime); 
+        controller.Move(velocity * Time.deltaTime);
 
-        // ================================
-        //      VOLTEAR CARTA (Enter)
-        // ================================
+        // =====================================
+        //  VOLTEAR CARTA (Enter)
+        // =====================================
         if (interactPressed)
             FlipCard();
     }
 
-    // --- Métodos (FlipCard, CheckPauseInput, TogglePause se mantienen igual) ---
+    // --- Métodos auxiliares ---
     void FlipCard()
     {
         Debug.Log("Intentando voltear carta...");
         RaycastHit hit;
+
         if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f))
         {
             CardController card = hit.transform.GetComponent<CardController>();
