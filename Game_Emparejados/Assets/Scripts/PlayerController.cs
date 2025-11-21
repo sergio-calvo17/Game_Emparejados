@@ -7,31 +7,35 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
+    // --- Variables Configurables ---
     [Header("Movimiento")]
-    public float moveSpeed = 2f;    // Velocidad de movimiento más lenta
-    public float rotationSpeed = 10f; 
+    public float moveSpeed = 5f;        // Velocidad de movimiento
+    public float rotationSpeed = 500f;  // Velocidad de rotación
 
-    [Header("Gravedad y Salto")] 
-    public float gravity = -20f;    // Gravedad ajustada para que el personaje caiga a un ritmo moderado
-    public float jumpForce = 5f;    // Fuerza de salto baja para un salto leve
-    private float ySpeed = 0f;      // Velocidad en el eje Y para aplicar gravedad y salto
+    [Header("Gravedad y Salto")]
+    public float gravity = -18f;        // Gravedad (Valor negativo para caer)
+    public float jumpForce = 10f;        // Fuerza vertical del salto
+    private float ySpeed = 2f;          // Velocidad vertical (gravedad/salto)
 
     [Header("Referencias")]
-    public Animator anim;           // Referencia al Animator para animaciones
-    private CharacterController controller;  // Componente CharacterController
-    private Vector3 velocity;        // Para manejar el salto y la gravedad
+    public Animator anim;               // Referencia al Animator
+    private CharacterController controller;
+    private Vector3 velocity;           // Vector ÚNICO para movimiento total
 
-    [Header("Configuración del suelo")]
-    public float groundCheckDistance = 0.5f; // Distancia para comprobar si el personaje está tocando el suelo
-    public LayerMask groundMask;  // Capa del suelo (debe incluir el plano o terreno)
+    private bool isPaused = false;
 
-    private bool isPaused = false; // Para controlar el estado de pausa
-    
     void Start()
     {
-        controller = GetComponent<CharacterController>(); 
-        if (!anim) anim = GetComponentInChildren<Animator>(); 
+        controller = GetComponent<CharacterController>();
+        // Busca el Animator en el objeto principal o en un hijo.
+        if (!anim) anim = GetComponentInChildren<Animator>();
 
+        if (controller == null || anim == null)
+        {
+            Debug.LogError("Error: Faltan componentes CharacterController o Animator.");
+        }
+
+        // Bloquear cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -39,127 +43,127 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         CheckPauseInput();
+        if (isPaused) return;
 
-        if (isPaused)
-        {
-            return; // Si el juego está pausado, no procesamos más
-        }
-
-        // 1. Entrada de teclas para movimiento y animaciones
+        // ================================
+        //      INPUT (Mover / Saltar / Enter)
+        // ================================
         float x = 0f, z = 0f;
         bool jumpPressed = false;
+        bool interactPressed = false;
 
-        #if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null)
+#if ENABLE_INPUT_SYSTEM
+        var keyboard = Keyboard.current;
+
+        if (keyboard != null)
         {
-            if (Keyboard.current.leftArrowKey.isPressed || Keyboard.current.aKey.isPressed) x -= 1f;
-            if (Keyboard.current.rightArrowKey.isPressed || Keyboard.current.dKey.isPressed) x += 1f;
-            if (Keyboard.current.upArrowKey.isPressed || Keyboard.current.wKey.isPressed) z += 1f;
-            if (Keyboard.current.downArrowKey.isPressed || Keyboard.current.sKey.isPressed) z -= 1f;
+            if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed) x -= 1f;
+            if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed) x += 1f;
+            if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed) z += 1f;
+            if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed) z -= 1f;
 
-            jumpPressed = Keyboard.current.spaceKey.wasPressedThisFrame;  // Salto con la tecla Espacio
+            jumpPressed = keyboard.spaceKey.wasPressedThisFrame;
+            interactPressed = keyboard.enterKey.wasPressedThisFrame;
         }
-        #else
+#else
+        // Usa el sistema de Input antiguo (GetAxisRaw responde a WASD y Flechas)
         x = Input.GetAxisRaw("Horizontal");
         z = Input.GetAxisRaw("Vertical");
-        jumpPressed = Input.GetKeyDown(KeyCode.Space);  // Salto con la tecla Espacio
-        #endif
+        jumpPressed = Input.GetKeyDown(KeyCode.Space);
+        interactPressed = Input.GetKeyDown(KeyCode.Return);
+#endif
 
+        // ================================
+        //      MOVIMIENTO HORIZONTAL + ROTACIÓN
+        // ================================
         Vector3 dir = new Vector3(x, 0f, z).normalized;
-        bool isMoving = dir.sqrMagnitude > 0.01f; 
-        anim.SetBool("caminando", isMoving); // Activamos la animación de caminar cuando el jugador se mueve
+        bool isMoving = dir.sqrMagnitude > 0.01f;
+        
+        // 1. Asignar movimiento horizontal al vector 'velocity'
+        velocity = dir * moveSpeed; 
 
-        // 2. Movimiento y Rotación
+        // Rotación: El personaje mira en la dirección de su input
         if (isMoving)
         {
-            Quaternion target = Quaternion.LookRotation(dir); // Rotamos el personaje hacia la dirección de movimiento
-            transform.rotation = Quaternion.Slerp(transform.rotation, target, rotationSpeed * Time.deltaTime); // Rotación suave
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
         }
 
-        controller.Move(dir * moveSpeed * Time.deltaTime);  // Mueve al personaje en la dirección `dir`
+        // ANIMACIÓN: Activar la animación de caminar si se está moviendo
+        anim.SetBool("caminando", isMoving); 
 
-        // 3. Verificación del suelo y aplicación de gravedad
-        bool isGrounded = controller.isGrounded; // Usamos la función integrada de CharacterController para verificar si está en el suelo
+        // ================================
+        //      SALTO + GRAVEDAD
+        // ================================
+        bool isGrounded = controller.isGrounded;
 
         if (isGrounded)
         {
-            if (ySpeed < 0f)
-                ySpeed = -2f;  // Para mantener al personaje pegado al suelo, evitamos que se quede flotando
+            if (ySpeed < 0)
+                ySpeed = -2f; // Mantiene al personaje pegado al suelo
+
+            if (jumpPressed)
+            {
+                anim.SetTrigger("salto");   // Activa animación de salto
+                ySpeed = jumpForce;         // Aplica la fuerza de salto
+            }
         }
 
-        // 4. Salto con la tecla Espacio (solo cuando está en el suelo)
-        if (jumpPressed && isGrounded)  // Si el jugador presiona espacio y está en el suelo
-        {
-            anim.SetTrigger("salto");  // Activamos la animación de salto
-            ySpeed = jumpForce;       // Aplicamos la fuerza de salto (el salto es leve)
-        }
+        // Aplicar gravedad continuamente
+        ySpeed += gravity * Time.deltaTime;  
+        
+        // 2. Asignar movimiento vertical al vector 'velocity'
+        velocity.y = ySpeed; 
 
-        // 5. Aplicar la gravedad
-        ySpeed += gravity * Time.deltaTime;  // Aplicamos gravedad para que el personaje caiga
-
-        // Aplicamos la velocidad en el eje Y (gravedad + salto)
-        velocity.y = ySpeed;
-
-        // Movemos el personaje aplicando la gravedad y el salto
+        // 3. ¡Mover el CharacterController una sola vez! (Combina X, Z, Y)
         controller.Move(velocity * Time.deltaTime); 
 
-        // 6. Interacción con cartas o objetos
+        // ================================
+        //      VOLTEAR CARTA (Enter)
+        // ================================
         if (interactPressed)
-        {
             FlipCard();
-        }
     }
 
-    // =======================================================================
-    // MÉTODOS DE ACCIÓN Y PAUSA
-    // =======================================================================
+    // --- Métodos de Acción y Pausa ---
     
-    // Método para voltear la carta al presionar Enter
     void FlipCard()
     {
         Debug.Log("Intentando voltear carta...");
-        
         RaycastHit hit;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f)) // Limita el rango de interacción
+        // Raycast limitado a 1.5 unidades de distancia
+        if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f))
         {
             CardController card = hit.transform.GetComponent<CardController>();
             if (card != null)
-            {
-                card.AttemptFlip(); // Llamamos a la función de voltear la carta
-            }
+                card.AttemptFlip();
         }
     }
 
-    // Método para controlar la pausa del juego con la tecla P
     void CheckPauseInput()
     {
-        bool pausePressed = 
-        #if ENABLE_INPUT_SYSTEM
-            Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame;
-        #else
-            Input.GetKeyDown(KeyCode.P); 
-        #endif
+#if ENABLE_INPUT_SYSTEM
+        bool pausePressed = Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame;
+#else
+        bool pausePressed = Input.GetKeyDown(KeyCode.P);
+#endif
 
         if (pausePressed)
-        {
-            TogglePause(); // Llamamos a la función para pausar o reanudar el juego
-        }
+            TogglePause();
     }
 
-    // Método que pausa o reanuda el juego
     void TogglePause()
     {
-        isPaused = !isPaused; 
-        
+        isPaused = !isPaused;
         if (isPaused)
         {
-            Time.timeScale = 0f;  // Detenemos el tiempo en el juego
+            Time.timeScale = 0f;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
         else
         {
-            Time.timeScale = 1f;  // Reanudamos el tiempo del juego
+            Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
