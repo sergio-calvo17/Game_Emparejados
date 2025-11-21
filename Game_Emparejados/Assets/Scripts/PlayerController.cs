@@ -9,25 +9,24 @@ public class PlayerController : MonoBehaviour
 {
     // --- Variables Configurables ---
     [Header("Movimiento")]
-    public float moveSpeed = 5f;        // Velocidad de movimiento
-    public float rotationSpeed = 500f;  // Velocidad de rotación
+    public float moveSpeed = 5f;
+    public float rotationSpeed = 500f;
 
     [Header("Gravedad y Salto")]
-    public float gravity = -18f;        // Gravedad (Valor negativo para caer)
-    public float jumpForce = 10f;        // Fuerza vertical del salto
-    private float ySpeed = 2f;          // Velocidad vertical (gravedad/salto)
+    public float gravity = -25f;
+    public float jumpForce = 8f;
+    private float ySpeed = 0f;
 
     [Header("Referencias")]
-    public Animator anim;               // Referencia al Animator
+    public Animator anim;
     private CharacterController controller;
-    private Vector3 velocity;           // Vector ÚNICO para movimiento total
+    private Vector3 velocity; // Vector ÚNICO para movimiento total
 
     private bool isPaused = false;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        // Busca el Animator en el objeto principal o en un hijo.
         if (!anim) anim = GetComponentInChildren<Animator>();
 
         if (controller == null || anim == null)
@@ -35,7 +34,6 @@ public class PlayerController : MonoBehaviour
             Debug.LogError("Error: Faltan componentes CharacterController o Animator.");
         }
 
-        // Bloquear cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -46,7 +44,7 @@ public class PlayerController : MonoBehaviour
         if (isPaused) return;
 
         // ================================
-        //      INPUT (Mover / Saltar / Enter)
+        //      INPUT
         // ================================
         float x = 0f, z = 0f;
         bool jumpPressed = false;
@@ -66,7 +64,6 @@ public class PlayerController : MonoBehaviour
             interactPressed = keyboard.enterKey.wasPressedThisFrame;
         }
 #else
-        // Usa el sistema de Input antiguo (GetAxisRaw responde a WASD y Flechas)
         x = Input.GetAxisRaw("Horizontal");
         z = Input.GetAxisRaw("Vertical");
         jumpPressed = Input.GetKeyDown(KeyCode.Space);
@@ -74,48 +71,60 @@ public class PlayerController : MonoBehaviour
 #endif
 
         // ================================
-        //      MOVIMIENTO HORIZONTAL + ROTACIÓN
+        //      MOVIMIENTO HORIZONTAL Y ROTACIÓN
         // ================================
         Vector3 dir = new Vector3(x, 0f, z).normalized;
         bool isMoving = dir.sqrMagnitude > 0.01f;
         
-        // 1. Asignar movimiento horizontal al vector 'velocity'
-        velocity = dir * moveSpeed; 
-
-        // Rotación: El personaje mira en la dirección de su input
-        if (isMoving)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-        }
-
-        // ANIMACIÓN: Activar la animación de caminar si se está moviendo
-        anim.SetBool("caminando", isMoving); 
-
-        // ================================
-        //      SALTO + GRAVEDAD
-        // ================================
         bool isGrounded = controller.isGrounded;
 
+        // --- LÓGICA CLAVE: RESTRICCIÓN DE MOVIMIENTO AÉREO ---
         if (isGrounded)
         {
+            // Resetear velocidad vertical al tocar el suelo
             if (ySpeed < 0)
-                ySpeed = -2f; // Mantiene al personaje pegado al suelo
+                ySpeed = -2f; 
+            
+            // 1. Aplicar movimiento horizontal y rotación solo en el suelo
+            velocity.x = dir.x * moveSpeed;
+            velocity.z = dir.z * moveSpeed;
+            
+            if (isMoving)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(dir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            }
 
+            // 2. Salto solo en el suelo
             if (jumpPressed)
             {
-                anim.SetTrigger("salto");   // Activa animación de salto
-                ySpeed = jumpForce;         // Aplica la fuerza de salto
+                anim.SetTrigger("salto");
+                ySpeed = jumpForce;
             }
-        }
+        } 
+        else // Si está en el aire (no isGrounded)
+        {
+            // 1. DETENER MOVIMIENTO HORIZONTAL: Aseguramos que la velocidad horizontal sea CERO.
+            velocity.x = 0; 
+            velocity.z = 0; 
 
-        // Aplicar gravedad continuamente
-        ySpeed += gravity * Time.deltaTime;  
+            // 2. NO permitir rotación.
+        }
         
-        // 2. Asignar movimiento vertical al vector 'velocity'
+        // Animación: 'caminando' solo se activa si hay input de movimiento Y está en el suelo
+        anim.SetBool("caminando", isMoving && isGrounded); 
+
+        // ================================
+        //      GRAVEDAD Y APLICAR MOVIMIENTO
+        // ================================
+        
+        // Aplicar gravedad continuamente
+        ySpeed += gravity * Time.deltaTime;
+        
+        // Asignar movimiento vertical al vector 'velocity'
         velocity.y = ySpeed; 
 
-        // 3. ¡Mover el CharacterController una sola vez! (Combina X, Z, Y)
+        // Mover el CharacterController
         controller.Move(velocity * Time.deltaTime); 
 
         // ================================
@@ -125,18 +134,15 @@ public class PlayerController : MonoBehaviour
             FlipCard();
     }
 
-    // --- Métodos de Acción y Pausa ---
-    
+    // --- Métodos (FlipCard, CheckPauseInput, TogglePause se mantienen igual) ---
     void FlipCard()
     {
         Debug.Log("Intentando voltear carta...");
         RaycastHit hit;
-        // Raycast limitado a 1.5 unidades de distancia
         if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f))
         {
             CardController card = hit.transform.GetComponent<CardController>();
-            if (card != null)
-                card.AttemptFlip();
+            if (card != null) card.AttemptFlip();
         }
     }
 
@@ -147,25 +153,14 @@ public class PlayerController : MonoBehaviour
 #else
         bool pausePressed = Input.GetKeyDown(KeyCode.P);
 #endif
-
-        if (pausePressed)
-            TogglePause();
+        if (pausePressed) TogglePause();
     }
 
     void TogglePause()
     {
         isPaused = !isPaused;
-        if (isPaused)
-        {
-            Time.timeScale = 0f;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-        else
-        {
-            Time.timeScale = 1f;
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
+        Time.timeScale = isPaused ? 0f : 1f;
+        Cursor.lockState = isPaused ? CursorLockMode.None : CursorLockMode.Locked;
+        Cursor.visible = isPaused;
     }
 }
