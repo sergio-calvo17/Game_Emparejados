@@ -13,8 +13,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("Gravedad y Salto")] 
     public float gravity = -20f;    // Gravedad ajustada para que el personaje caiga a un ritmo moderado
-    public float jumpForce = 3f;    // Fuerza de salto baja para un salto leve
-    private bool isGrounded;        // Para verificar si el personaje está en el suelo
+    public float jumpForce = 5f;    // Fuerza de salto baja para un salto leve
+    private float ySpeed = 0f;      // Velocidad en el eje Y para aplicar gravedad y salto
 
     [Header("Referencias")]
     public Animator anim;           // Referencia al Animator para animaciones
@@ -48,7 +48,6 @@ public class PlayerController : MonoBehaviour
         // 1. Entrada de teclas para movimiento y animaciones
         float x = 0f, z = 0f;
         bool jumpPressed = false;
-        bool interactPressed = false;
 
         #if ENABLE_INPUT_SYSTEM
         if (Keyboard.current != null)
@@ -59,16 +58,13 @@ public class PlayerController : MonoBehaviour
             if (Keyboard.current.downArrowKey.isPressed || Keyboard.current.sKey.isPressed) z -= 1f;
 
             jumpPressed = Keyboard.current.spaceKey.wasPressedThisFrame;  // Salto con la tecla Espacio
-            interactPressed = Keyboard.current.enterKey.wasPressedThisFrame; // Interacción con Enter
         }
         #else
         x = Input.GetAxisRaw("Horizontal");
         z = Input.GetAxisRaw("Vertical");
         jumpPressed = Input.GetKeyDown(KeyCode.Space);  // Salto con la tecla Espacio
-        interactPressed = Input.GetKeyDown(KeyCode.Return); // Interacción con Enter
         #endif
 
-        // Cálculo de la dirección de movimiento
         Vector3 dir = new Vector3(x, 0f, z).normalized;
         bool isMoving = dir.sqrMagnitude > 0.01f; 
         anim.SetBool("caminando", isMoving); // Activamos la animación de caminar cuando el jugador se mueve
@@ -80,29 +76,31 @@ public class PlayerController : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, target, rotationSpeed * Time.deltaTime); // Rotación suave
         }
 
-        // Aplicamos el movimiento en la dirección calculada
         controller.Move(dir * moveSpeed * Time.deltaTime);  // Mueve al personaje en la dirección `dir`
 
         // 3. Verificación del suelo y aplicación de gravedad
-        isGrounded = controller.isGrounded; // Usamos la función integrada de CharacterController para verificar si está en el suelo
+        bool isGrounded = controller.isGrounded; // Usamos la función integrada de CharacterController para verificar si está en el suelo
 
         if (isGrounded)
         {
-            if (velocity.y < 0f)
-                velocity.y = -2f;  // Para mantener al personaje pegado al suelo, evitamos que se quede flotando
+            if (ySpeed < 0f)
+                ySpeed = -2f;  // Para mantener al personaje pegado al suelo, evitamos que se quede flotando
         }
 
-        // 4. Saltar con la tecla Espacio (solo cuando está en el suelo)
+        // 4. Salto con la tecla Espacio (solo cuando está en el suelo)
         if (jumpPressed && isGrounded)  // Si el jugador presiona espacio y está en el suelo
         {
             anim.SetTrigger("salto");  // Activamos la animación de salto
-            velocity.y = jumpForce;    // Aplicamos la fuerza de salto
+            ySpeed = jumpForce;       // Aplicamos la fuerza de salto (el salto es leve)
         }
 
         // 5. Aplicar la gravedad
-        velocity.y += gravity * Time.deltaTime;  // Aplicamos gravedad para que el personaje caiga
+        ySpeed += gravity * Time.deltaTime;  // Aplicamos gravedad para que el personaje caiga
 
-        // Movemos el personaje aplicando la gravedad
+        // Aplicamos la velocidad en el eje Y (gravedad + salto)
+        velocity.y = ySpeed;
+
+        // Movemos el personaje aplicando la gravedad y el salto
         controller.Move(velocity * Time.deltaTime); 
 
         // 6. Interacción con cartas o objetos
