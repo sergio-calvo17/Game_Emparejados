@@ -1,17 +1,34 @@
 using UnityEngine;
+using System.Collections;
 
 public class TileFlipOnJump : MonoBehaviour
 {
     public float flipSpeed = 2f;
-    private bool alreadyFlipped = false;
 
-    private Quaternion startRot;
-    private Quaternion targetRot;
+    // Nombre de la baldosa (se toma el nombre del GameObject)
+    public string tileName;
+
+    // Si es una baldosa trampa
+    public bool isTrap = false;
+
+    // Referencia al TileManager
+    private TileManager tileManager;
+
+    // Estados internos
+    private bool isFlipped = false;  // Baldosa actualmente volteada
+    private bool isLocked = false;   // Baldosa que no se puede volver a girar
+
+    private Quaternion startRotation;
+    private Quaternion flippedRotation;
 
     void Start()
     {
-        startRot = transform.rotation;
-        targetRot = Quaternion.Euler(startRot.eulerAngles + new Vector3(180f, 0f, 0f));
+        tileManager = FindAnyObjectByType<TileManager>();
+
+        tileName = gameObject.name;
+
+        startRotation = transform.rotation;
+        flippedRotation = Quaternion.Euler(startRotation.eulerAngles + new Vector3(180f, 0f, 0f));
     }
 
     private void OnTriggerEnter(Collider other)
@@ -20,34 +37,51 @@ public class TileFlipOnJump : MonoBehaviour
             return;
 
         PlayerController pc = other.GetComponent<PlayerController>();
-
         if (pc == null)
-        {
-            Debug.Log("El objeto que entró no tiene PlayerController.");
             return;
-        }
 
-        Debug.Log("Jugador saltando: " + pc.isJumping);
+        if (!pc.isJumping)
+            return;
 
-        if (pc.isJumping && !alreadyFlipped)
+        if (isLocked)  // Si ya quedó bloqueada, no se voltea
+            return;
+
+        if (!isFlipped)
         {
-            alreadyFlipped = true;
-            StartCoroutine(FlipAnimation());
+            StartCoroutine(FlipAnimation(startRotation, flippedRotation));
+            isFlipped = true;
+
+            if (tileManager != null)
+                tileManager.RegisterTile(this);
         }
     }
 
-    private System.Collections.IEnumerator FlipAnimation()
+    // Resetea la baldosa solo si NO está bloqueada
+    public void ResetTile()
+    {
+        if (isLocked)
+            return;
+
+        StartCoroutine(FlipAnimation(flippedRotation, startRotation));
+        isFlipped = false;
+    }
+
+    // Bloquea la baldosa para que quede destapada permanentemente
+    public void LockTile()
+    {
+        isLocked = true;
+        isFlipped = true; // Aseguramos que quede volteada
+    }
+
+    private IEnumerator FlipAnimation(Quaternion fromRot, Quaternion toRot)
     {
         float t = 0f;
-        Quaternion initial = transform.rotation;
-
         while (t < 1f)
         {
-            transform.rotation = Quaternion.Lerp(initial, targetRot, t);
+            transform.rotation = Quaternion.Lerp(fromRot, toRot, t);
             t += Time.deltaTime * flipSpeed;
             yield return null;
         }
-
-        transform.rotation = targetRot;
+        transform.rotation = toRot;
     }
 }
