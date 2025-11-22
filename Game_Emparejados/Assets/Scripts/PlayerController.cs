@@ -22,7 +22,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 velocity;
 
     public bool isJumping = false;
-    private bool isPaused = false;
+   
 
     // ⭐ Estados del jugador
     public bool hasWon = false;
@@ -33,8 +33,7 @@ public class PlayerController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         if (!anim) anim = GetComponentInChildren<Animator>();
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        
     }
 
     void Update()
@@ -47,8 +46,6 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        CheckPauseInput();
-        if (isPaused) return;
 
         // ================================
         // INPUT
@@ -152,21 +149,4 @@ public class PlayerController : MonoBehaviour
 
     // ============================================================
 
-    void CheckPauseInput()
-    {
-#if ENABLE_INPUT_SYSTEM
-        bool pausePressed = Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame;
-#else
-        bool pausePressed = Input.GetKeyDown(KeyCode.P);
-#endif
-        if (pausePressed) TogglePause();
-    }
-
-    void TogglePause()
-    {
-        isPaused = !isPaused;
-        Time.timeScale = isPaused ? 0f : 1f;
-        Cursor.lockState = isPaused ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = isPaused;
-    }
 }
