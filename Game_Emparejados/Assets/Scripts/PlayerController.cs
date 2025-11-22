@@ -1,59 +1,168 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // <- NUEVO sistema de input
+
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed = 4f;
-    public float rotationSpeed = 10f;
-    public float gravity = -9.81f;
+    // --- Variables Configurables ---
+    [Header("Movimiento")]
+    public float moveSpeed = 15f; 
+    public float rotationSpeed = 500f;
 
+    [Header("Gravedad y Salto")]
+    public float gravity = -25f;
+    public float jumpForce = 8f;
+    private float ySpeed = 0f;
+
+    [Header("Referencias")]
+    public Animator anim;
     private CharacterController controller;
-    private Animator anim;
-    private Vector3 velocity;
+    private Vector3 velocity; // Vector de movimiento
+
+    private bool isPaused = false;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        anim = GetComponent<Animator>();
+        if (!anim) anim = GetComponentInChildren<Animator>();
+
+        if (controller == null || anim == null)
+        {
+            Debug.LogError("Error: Faltan componentes CharacterController o Animator.");
+        }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     void Update()
     {
+        CheckPauseInput();
+        if (isPaused) return;
+
+        // =====================================
+        //  INPUT
+        // =====================================
         float x = 0f, z = 0f;
+        bool jumpPressed = false;
+        bool interactPressed = false;
 
-        // WASD
-        if (Keyboard.current != null)
+#if ENABLE_INPUT_SYSTEM
+        var keyboard = Keyboard.current;
+
+        if (keyboard != null)
         {
-            x += Keyboard.current.aKey.isPressed ? -1 : 0;
-            x += Keyboard.current.dKey.isPressed ?  1 : 0;
-            z += Keyboard.current.sKey.isPressed ? -1 : 0;
-            z += Keyboard.current.wKey.isPressed ?  1 : 0;
+            if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed) x -= 1f;
+            if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed) x += 1f;
+            if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed) z += 1f;
+            if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed) z -= 1f;
 
-            // Flechas
-            x += Keyboard.current.leftArrowKey.isPressed  ? -1 : 0;
-            x += Keyboard.current.rightArrowKey.isPressed ?  1 : 0;
-            z += Keyboard.current.downArrowKey.isPressed  ? -1 : 0;
-            z += Keyboard.current.upArrowKey.isPressed    ?  1 : 0;
+            jumpPressed = keyboard.spaceKey.wasPressedThisFrame;
+            interactPressed = keyboard.enterKey.wasPressedThisFrame;
         }
+#else
+        x = Input.GetAxisRaw("Horizontal");
+        z = Input.GetAxisRaw("Vertical");
+        jumpPressed = Input.GetKeyDown(KeyCode.Space);
+        interactPressed = Input.GetKeyDown(KeyCode.Return);
+#endif
 
-        Vector3 dir = new Vector3(Mathf.Clamp(x, -1, 1), 0f, Mathf.Clamp(z, -1, 1)).normalized;
+        Vector3 dir = new Vector3(x, 0f, z).normalized;
         bool isMoving = dir.sqrMagnitude > 0.01f;
+        bool isGrounded = controller.isGrounded;
 
-        // Animación
-        if (anim != null) anim.SetBool("isWalking", isMoving);
+        // ⭐ CORRECCIÓN CLAVE: Reseteamos la velocidad horizontal al inicio del frame.
+        // Solo se rellenará si estamos en el suelo (ver abajo).
+        velocity.x = 0;
+        velocity.z = 0;
 
-        // Movimiento + rotación
-        if (isMoving)
+        // =====================================
+        //  BLOQUEAR MOVIMIENTO EN EL AIRE
+        // =====================================
+        if (isGrounded)
         {
-            Quaternion targetRot = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-            controller.Move(dir * moveSpeed * Time.deltaTime);
+            anim.SetBool("enElAire", false);
+
+            if (ySpeed < 0)
+                ySpeed = -2f;
+
+            // Movimiento horizontal y rotación SOLO en el suelo
+            velocity.x = dir.x * moveSpeed; // Se establece la velocidad horizontal aquí
+            velocity.z = dir.z * moveSpeed; // Y solo aquí.
+
+            if (isMoving)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(dir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            }
+
+            // SALTO
+            if (jumpPressed)
+            {
+                anim.SetTrigger("salto");
+                anim.SetBool("enElAire", true); 
+                ySpeed = jumpForce;
+
+                // ⭐ EXTRA: Forzamos la detención si aún hay inercia después de un frame.
+                velocity.x = 0; 
+                velocity.z = 0; 
+            }
+        }
+        else // isGrounded == false (en el aire)
+        {
+            anim.SetBool("enElAire", true);
+            // velocity.x y velocity.z ya son 0 por el reseteo al inicio del Update.
         }
 
-        // Gravedad
-        if (controller.isGrounded && velocity.y < 0f) velocity.y = -2f;
-        velocity.y += gravity * Time.deltaTime;
+        // Animación caminar: solo en suelo y con input
+        anim.SetBool("caminando", isMoving && isGrounded);
+
+        // =====================================
+        //  GRAVEDAD Y MOVIMIENTO VERTICAL
+        // =====================================
+        ySpeed += gravity * Time.deltaTime;
+        velocity.y = ySpeed;
+
         controller.Move(velocity * Time.deltaTime);
+
+        // =====================================
+        //  VOLTEAR CARTA (Enter)
+        // =====================================
+        if (interactPressed)
+            FlipCard();
+    }
+
+    // --- Métodos auxiliares ---
+    void FlipCard()
+    {
+        Debug.Log("Intentando voltear carta...");
+        RaycastHit hit;
+
+        if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f))
+        {
+            CardController card = hit.transform.GetComponent<CardController>();
+            if (card != null) card.AttemptFlip();
+        }
+    }
+
+    void CheckPauseInput()
+    {
+#if ENABLE_INPUT_SYSTEM
+        bool pausePressed = Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame;
+#else
+        bool pausePressed = Input.GetKeyDown(KeyCode.P);
+#endif
+        if (pausePressed) TogglePause();
+    }
+
+    void TogglePause()
+    {
+        isPaused = !isPaused;
+        Time.timeScale = isPaused ? 0f : 1f;
+        Cursor.lockState = isPaused ? CursorLockMode.None : CursorLockMode.Locked;
+        Cursor.visible = isPaused;
     }
 }
