@@ -24,6 +24,10 @@ public class PlayerController : MonoBehaviour
     public bool isJumping = false;
     private bool isPaused = false;
 
+    // ⭐ Estados del jugador
+    public bool hasWon = false;
+    public bool hasLost = false;
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -35,9 +39,20 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // ⭐ Bloquear movimiento si ganó o perdió
+        if (hasWon || hasLost)
+        {
+            velocity = Vector3.zero;
+            controller.Move(Vector3.zero);
+            return;
+        }
+
         CheckPauseInput();
         if (isPaused) return;
 
+        // ================================
+        // INPUT
+        // ================================
         float x = 0f, z = 0f;
         bool jumpPressed = false;
 
@@ -52,11 +67,18 @@ public class PlayerController : MonoBehaviour
             if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed) z -= 1f;
 
             jumpPressed = keyboard.spaceKey.wasPressedThisFrame;
+
+            // ⭐ Teclas para probar las animaciones:
+            if (keyboard.vKey.wasPressedThisFrame) TriggerVictory();
+            if (keyboard.lKey.wasPressedThisFrame) TriggerDefeat();
         }
 #else
         x = Input.GetAxisRaw("Horizontal");
         z = Input.GetAxisRaw("Vertical");
         jumpPressed = Input.GetKeyDown(KeyCode.Space);
+
+        if (Input.GetKeyDown(KeyCode.V)) TriggerVictory();
+        if (Input.GetKeyDown(KeyCode.L)) TriggerDefeat();
 #endif
 
         Vector3 dir = new Vector3(x, 0f, z).normalized;
@@ -88,21 +110,18 @@ public class PlayerController : MonoBehaviour
                 anim.SetBool("enElAire", true);
                 ySpeed = jumpForce;
 
-                isJumping = true;                                       // ⭐ Saltando
-                Debug.Log("Jugador empezó salto: true");
-
+                isJumping = true;
                 velocity.x = 0;
                 velocity.z = 0;
             }
             else
             {
-                isJumping = false;                                      // ⭐ No saltando
+                isJumping = false;
             }
         }
         else
         {
             anim.SetBool("enElAire", true);
-            // Mientras está en el aire, isJumping permanece igual
         }
 
         anim.SetBool("caminando", isMoving && isGrounded);
@@ -112,6 +131,26 @@ public class PlayerController : MonoBehaviour
 
         controller.Move(velocity * Time.deltaTime);
     }
+
+    // ============================================================
+    // ⭐ MÉTODOS NUEVOS PARA VICTORIA Y DERROTA
+    // ============================================================
+
+    public void TriggerVictory()
+    {
+        hasWon = true;
+        anim.SetTrigger("victoria");
+        Debug.Log("ANIMACIÓN: Victoria activada");
+    }
+
+    public void TriggerDefeat()
+    {
+        hasLost = true;
+        anim.SetTrigger("derrota");
+        Debug.Log("ANIMACIÓN: Derrota activada");
+    }
+
+    // ============================================================
 
     void CheckPauseInput()
     {
