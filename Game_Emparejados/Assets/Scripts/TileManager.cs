@@ -53,16 +53,16 @@ public class TileManager : MonoBehaviour
     // Compara las dos baldosas
     private void CheckMatch()
     {
-        if (firstTile.tileName == secondTile.tileName)
+        if (AreTilesPair(firstTile.tileName, secondTile.tileName))
         {
-            Debug.Log("Son iguales. Quedan destapadas.");
+            Debug.Log("¡Coinciden! Quedan destapadas.");
 
             firstTile.LockTile();
             secondTile.LockTile();
         }
         else
         {
-            Debug.Log("Diferentes. Se vuelven a tapar.");
+            Debug.Log("No coinciden. Se vuelven a tapar.");
 
             firstTile.ResetTile();
             secondTile.ResetTile();
@@ -71,4 +71,28 @@ public class TileManager : MonoBehaviour
         firstTile = null;
         secondTile = null;
     }
+
+    // Define qué baldosas son pareja según los nombres
+    private bool AreTilesPair(string name1, string name2)
+    {
+        if ((name1 == "piso circulo" && name2 == "piso circulo (1)") ||
+            (name1 == "piso circulo (1)" && name2 == "piso circulo"))
+            return true;
+
+        if ((name1 == "piso cuadrado" && name2 == "piso cuadrado (1)") ||
+            (name1 == "piso cuadrado (1)" && name2 == "piso cuadrado"))
+            return true;
+
+        if ((name1 == "piso estrella" && name2 == "piso estrella (1)") ||
+            (name1 == "piso estrella (1)" && name2 == "piso estrella"))
+            return true;
+
+        if ((name1 == "piso triangulo" && name2 == "piso triangulo (1)") ||
+            (name1 == "piso triangulo (1)" && name2 == "piso triangulo"))
+            return true;
+
+        // piso trampa no tiene pareja
+        return false;
+    }
 }
+
