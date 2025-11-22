@@ -7,22 +7,25 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    // --- Variables Configurables ---
     [Header("Movimiento")]
-    public float moveSpeed = 15f; 
+    public float moveSpeed = 15f;
     public float rotationSpeed = 500f;
 
     [Header("Gravedad y Salto")]
     public float gravity = -25f;
     public float jumpForce = 8f;
     private float ySpeed = 0f;
+    private bool isJumping = false; // NUEVO: flag de salto
 
     [Header("Referencias")]
     public Animator anim;
     private CharacterController controller;
-    private Vector3 velocity; // Vector de movimiento
+    private Vector3 velocity;
 
     private bool isPaused = false;
+
+    [Header("Baldosas")]
+    public float rayDistance = 1.0f; // distancia del Raycast hacia abajo
 
     void Start()
     {
@@ -30,9 +33,7 @@ public class PlayerController : MonoBehaviour
         if (!anim) anim = GetComponentInChildren<Animator>();
 
         if (controller == null || anim == null)
-        {
             Debug.LogError("Error: Faltan componentes CharacterController o Animator.");
-        }
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -43,15 +44,20 @@ public class PlayerController : MonoBehaviour
         CheckPauseInput();
         if (isPaused) return;
 
-        // =====================================
-        //  INPUT
-        // =====================================
+        HandleInput();
+        HandleMovement();
+        HandleGravity();
+        DetectTileBelow();
+        HandleCardFlip();
+    }
+
+    void HandleInput()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var keyboard = Keyboard.current;
         float x = 0f, z = 0f;
         bool jumpPressed = false;
         bool interactPressed = false;
-
-#if ENABLE_INPUT_SYSTEM
-        var keyboard = Keyboard.current;
 
         if (keyboard != null)
         {
@@ -64,83 +70,91 @@ public class PlayerController : MonoBehaviour
             interactPressed = keyboard.enterKey.wasPressedThisFrame;
         }
 #else
-        x = Input.GetAxisRaw("Horizontal");
-        z = Input.GetAxisRaw("Vertical");
-        jumpPressed = Input.GetKeyDown(KeyCode.Space);
-        interactPressed = Input.GetKeyDown(KeyCode.Return);
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
+        bool jumpPressed = Input.GetKeyDown(KeyCode.Space);
+        bool interactPressed = Input.GetKeyDown(KeyCode.Return);
 #endif
 
-        Vector3 dir = new Vector3(x, 0f, z).normalized;
-        bool isMoving = dir.sqrMagnitude > 0.01f;
-        bool isGrounded = controller.isGrounded;
+        // Movimiento horizontal
+        velocity.x = x * moveSpeed;
+        velocity.z = z * moveSpeed;
 
-        // ⭐ CORRECCIÓN CLAVE: Reseteamos la velocidad horizontal al inicio del frame.
-        // Solo se rellenará si estamos en el suelo (ver abajo).
-        velocity.x = 0;
-        velocity.z = 0;
-
-        // =====================================
-        //  BLOQUEAR MOVIMIENTO EN EL AIRE
-        // =====================================
-        if (isGrounded)
+        // SALTO
+        if (jumpPressed && controller.isGrounded)
         {
-            anim.SetBool("enElAire", false);
-
-            if (ySpeed < 0)
-                ySpeed = -2f;
-
-            // Movimiento horizontal y rotación SOLO en el suelo
-            velocity.x = dir.x * moveSpeed; // Se establece la velocidad horizontal aquí
-            velocity.z = dir.z * moveSpeed; // Y solo aquí.
-
-            if (isMoving)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(dir);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-            }
-
-            // SALTO
-            if (jumpPressed)
-            {
-                anim.SetTrigger("salto");
-                anim.SetBool("enElAire", true); 
-                ySpeed = jumpForce;
-
-                // ⭐ EXTRA: Forzamos la detención si aún hay inercia después de un frame.
-                velocity.x = 0; 
-                velocity.z = 0; 
-            }
-        }
-        else // isGrounded == false (en el aire)
-        {
+            anim.SetTrigger("salto");
             anim.SetBool("enElAire", true);
-            // velocity.x y velocity.z ya son 0 por el reseteo al inicio del Update.
+            ySpeed = jumpForce;
+            velocity.x = 0;
+            velocity.z = 0;
+
+            isJumping = true; // <-- Player inició salto
         }
 
-        // Animación caminar: solo en suelo y con input
-        anim.SetBool("caminando", isMoving && isGrounded);
+        // Rotación solo si hay input horizontal/vertical
+        Vector3 dir = new Vector3(x, 0f, z).normalized;
+        if (dir.sqrMagnitude > 0.01f && controller.isGrounded)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
 
-        // =====================================
-        //  GRAVEDAD Y MOVIMIENTO VERTICAL
-        // =====================================
-        ySpeed += gravity * Time.deltaTime;
+        anim.SetBool("caminando", dir.sqrMagnitude > 0.01f && controller.isGrounded);
+    }
+
+    void HandleMovement()
+    {
+        // Reseteo velocidad vertical al estar en el suelo
+        if (controller.isGrounded && ySpeed < 0)
+        {
+            ySpeed = -2f;
+
+            if (isJumping)
+                isJumping = false; // Player ya tocó el suelo
+        }
+
         velocity.y = ySpeed;
-
         controller.Move(velocity * Time.deltaTime);
+        anim.SetBool("enElAire", !controller.isGrounded);
+    }
 
-        // =====================================
-        //  VOLTEAR CARTA (Enter)
-        // =====================================
+    void HandleGravity()
+    {
+        ySpeed += gravity * Time.deltaTime;
+    }
+
+    // --- Detecta baldosas solo mientras el Player está en el aire ---
+    void DetectTileBelow()
+    {
+        if (!isJumping) return; // no hacer nada si no está saltando
+
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, rayDistance))
+        {
+            TileController tile = hit.collider.GetComponent<TileController>();
+            if (tile != null)
+            {
+                tile.TryFlipFromPlayer(ySpeed);
+            }
+        }
+    }
+
+    void HandleCardFlip()
+    {
+#if ENABLE_INPUT_SYSTEM
+        bool interactPressed = Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame;
+#else
+        bool interactPressed = Input.GetKeyDown(KeyCode.Return);
+#endif
         if (interactPressed)
             FlipCard();
     }
 
-    // --- Métodos auxiliares ---
     void FlipCard()
     {
         Debug.Log("Intentando voltear carta...");
         RaycastHit hit;
-
         if (Physics.Raycast(transform.position, transform.forward, out hit, 1.5f))
         {
             CardController card = hit.transform.GetComponent<CardController>();
