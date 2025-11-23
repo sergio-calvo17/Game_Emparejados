@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class TileManager : MonoBehaviour
 {
@@ -27,13 +28,27 @@ public class TileManager : MonoBehaviour
     [Header("Explosión baldosa trampa")]
     public GameObject explosionPrefab;
 
-    // Ajuste automático
     public float explosionMultiplier = 0.9f;
-    // (1 = igual de grande que la baldosa. 0.9 la hace un poquito más pequeña)
+
+    // Lista de todas las baldosas
+    private List<TileFlipOnJump> allTiles;
 
     private void Start()
     {
         gameManager = GameManager.Instance;
+
+        // Recoger todas las baldosas que están dentro de "Game Board"
+        Transform board = GameObject.Find("Game Board").transform;
+        allTiles = new List<TileFlipOnJump>();
+        foreach (Transform child in board)
+        {
+            TileFlipOnJump tile = child.GetComponent<TileFlipOnJump>();
+            if (tile != null)
+                allTiles.Add(tile);
+        }
+
+        // Mezclar las posiciones de las baldosas
+        ShuffleTiles();
     }
 
     // ---------------------------------------------------------
@@ -50,13 +65,10 @@ public class TileManager : MonoBehaviour
         if (tile.isTrap)
         {
             Debug.Log("Se pisó una baldosa trampa!");
-
             CrearExplosion(tile);
-
             StartCoroutine(DelayGameOver());
             return;
         }
-        // -------------------------------------------------
 
         if (firstTile == null)
         {
@@ -85,16 +97,13 @@ public class TileManager : MonoBehaviour
         {
             firstTile.LockTile();
             secondTile.LockTile();
-
             pairsFound++;
 
             if (sonidoAcierto != null)
                 sonidoAcierto.Play();
 
             if (pairsFound >= totalPairs)
-            {
                 gameManager.MostrarVictoria();
-            }
         }
         else
         {
@@ -112,20 +121,16 @@ public class TileManager : MonoBehaviour
     private bool AreTilesPair(string name1, string name2)
     {
         if ((name1 == "piso circulo" && name2 == "piso circulo (1)") ||
-            (name1 == "piso circulo (1)" && name2 == "piso circulo"))
-            return true;
+            (name1 == "piso circulo (1)" && name2 == "piso circulo")) return true;
 
         if ((name1 == "piso cuadrado" && name2 == "piso cuadrado (1)") ||
-            (name1 == "piso cuadrado (1)" && name2 == "piso cuadrado"))
-            return true;
+            (name1 == "piso cuadrado (1)" && name2 == "piso cuadrado")) return true;
 
         if ((name1 == "piso estrella" && name2 == "piso estrella (1)") ||
-            (name1 == "piso estrella (1)" && name2 == "piso estrella"))
-            return true;
+            (name1 == "piso estrella (1)" && name2 == "piso estrella")) return true;
 
         if ((name1 == "piso triangulo" && name2 == "piso triangulo (1)") ||
-            (name1 == "piso triangulo (1)" && name2 == "piso triangulo"))
-            return true;
+            (name1 == "piso triangulo (1)" && name2 == "piso triangulo")) return true;
 
         return false;
     }
@@ -144,34 +149,21 @@ public class TileManager : MonoBehaviour
 
         GameObject fx = Instantiate(explosionPrefab, tile.transform.position, Quaternion.identity);
 
-        // Tamaño REAL de la baldosa
         Vector3 tileScale = tile.transform.localScale;
-
-        // Escala final
         float escala = Mathf.Max(tileScale.x, tileScale.y) * explosionMultiplier;
-
         fx.transform.localScale = new Vector3(escala, escala, escala);
 
-        // Si es ParticleSystem, escalar correctamente
         ParticleSystem ps = fx.GetComponent<ParticleSystem>();
         if (ps != null)
         {
             var main = ps.main;
-
-            // Tamaño de partículas
             main.startSizeMultiplier = escala;
-
-            // Velocidad proporcional al tamaño
             main.startSpeedMultiplier = escala * 2f;
         }
 
-        // Destrucción automática basada en la duración real del sistema de partículas
         float lifetime = 2.5f;
-
         if (ps != null)
-        {
             lifetime = ps.main.duration + ps.main.startLifetime.constantMax;
-        }
 
         Destroy(fx, lifetime);
     }
@@ -183,5 +175,32 @@ public class TileManager : MonoBehaviour
     {
         yield return new WaitForSeconds(0.6f);
         gameManager.MostrarDerrota();
+    }
+
+    // ---------------------------------------------------------
+    // MÉTODO PARA MEZCLAR BALDOSAS
+    // ---------------------------------------------------------
+    private void ShuffleTiles()
+    {
+        if (allTiles == null || allTiles.Count == 0) return;
+
+        List<Vector3> positions = new List<Vector3>();
+        foreach (var tile in allTiles)
+            positions.Add(tile.transform.position);
+
+        // Mezclar posiciones aleatoriamente
+        for (int i = 0; i < positions.Count; i++)
+        {
+            int randIndex = Random.Range(0, positions.Count);
+            Vector3 temp = positions[i];
+            positions[i] = positions[randIndex];
+            positions[randIndex] = temp;
+        }
+
+        // Aplicar nuevas posiciones a las baldosas
+        for (int i = 0; i < allTiles.Count; i++)
+        {
+            allTiles[i].transform.position = positions[i];
+        }
     }
 }
