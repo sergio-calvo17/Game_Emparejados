@@ -6,14 +6,43 @@ public class TileManager : MonoBehaviour
     private TileFlipOnJump firstTile = null;
     private TileFlipOnJump secondTile = null;
 
-    private bool checking = false; // Evita activar más de dos baldosas a la vez
+    private bool checking = false; // Evita activar mÃ¡s de dos baldosas a la vez
 
-    // Método que llama cada baldosa al voltearse
+    // Contador de pares encontrados
+    public int pairsFound = 0;
+
+    // Cantidad total de pares (4 en tu 3x3 con 1 trampa)
+    public int totalPairs = 4;
+
+    // Nuevo: referencia al GameManager
+    // (para poder avisarle cuando se gane)
+    private GameManager gameManager;
+
+    // -------------------------------
+    // NUEVO: sonidos del gameplay
+    // -------------------------------
+    [Header("Sonidos de juego")]
+    public AudioSource sonidoVoltear;    // suena al voltear una baldosa
+    public AudioSource sonidoAcierto;    // suena cuando el par coincide
+    public AudioSource sonidoFallo;      // suena cuando el par NO coincide
+
+
+    private void Start()
+    {
+        // Buscar automÃ¡ticamente el GameManager en la escena
+        gameManager = GameManager.Instance;
+    }
+
+    // MÃ©todo que llama cada baldosa al voltearse
     public void RegisterTile(TileFlipOnJump tile)
     {
         if (checking) return; // Evita interferencias
 
-        // Si es una baldosa trampa, la manejamos después
+        // --- NUEVO: sonido al voltear baldosa ---
+        if (sonidoVoltear != null)
+            sonidoVoltear.Play();
+
+        // Si es una baldosa trampa, la manejamos despuÃ©s
         if (tile.isTrap)
         {
             Debug.Log("Se piso una baldosa trampa.");
@@ -40,7 +69,7 @@ public class TileManager : MonoBehaviour
         }
     }
 
-    // Espera un pequeño tiempo para que la animación termine antes de comparar
+    // Espera un pequeÃ±o tiempo para que la animaciÃ³n termine antes de comparar
     private IEnumerator CheckMatchDelayed()
     {
         yield return new WaitForSeconds(0.5f);
@@ -55,14 +84,34 @@ public class TileManager : MonoBehaviour
     {
         if (AreTilesPair(firstTile.tileName, secondTile.tileName))
         {
-            Debug.Log("¡Coinciden! Quedan destapadas.");
+            Debug.Log("Â¡Coinciden! Quedan destapadas.");
 
             firstTile.LockTile();
             secondTile.LockTile();
+
+            // Sumar 1 par encontrado
+            pairsFound++;
+
+            Debug.Log("Pares encontrados: " + pairsFound + "/" + totalPairs);
+
+            // --- NUEVO: sonido al acertar ---
+            if (sonidoAcierto != null)
+                sonidoAcierto.Play();
+
+            // --- NUEVO: Avisar al GameManager si se encontraron todos ---
+            if (pairsFound >= totalPairs)
+            {
+                Debug.Log("Â¡Se encontraron todos los pares!");
+                gameManager.MostrarVictoria(); // Mostrar pantalla de victoria
+            }
         }
         else
         {
             Debug.Log("No coinciden. Se vuelven a tapar.");
+
+            // --- NUEVO: sonido al fallar ---
+            if (sonidoFallo != null)
+                sonidoFallo.Play();
 
             firstTile.ResetTile();
             secondTile.ResetTile();
@@ -72,7 +121,7 @@ public class TileManager : MonoBehaviour
         secondTile = null;
     }
 
-    // Define qué baldosas son pareja según los nombres
+    // Define quÃ© baldosas son pareja segÃºn los nombres
     private bool AreTilesPair(string name1, string name2)
     {
         if ((name1 == "piso circulo" && name2 == "piso circulo (1)") ||
@@ -94,5 +143,10 @@ public class TileManager : MonoBehaviour
         // piso trampa no tiene pareja
         return false;
     }
-}
 
+    // Saber si ya se encontraron todos los pares
+    public bool AllPairsFound()
+    {
+        return pairsFound >= totalPairs;
+    }
+}

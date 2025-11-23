@@ -27,6 +27,9 @@ public class TimerController : MonoBehaviour
         {
             currentTime = 0f;
             isRunning = false;
+
+            // Llamar derrota cuando se acaba el tiempo
+            GameManager.Instance.MostrarDerrota();
         }
 
         UpdateTimerDisplay(currentTime);
