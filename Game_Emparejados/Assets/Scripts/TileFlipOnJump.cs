@@ -4,47 +4,47 @@ using System.Collections;
 public class TileFlipOnJump : MonoBehaviour
 {
     public float flipSpeed = 2f;
-
-    // Nombre de la baldosa (se toma el nombre del GameObject)
     public string tileName;
-
-    // Si es una baldosa trampa
     public bool isTrap = false;
 
-    // Referencia al TileManager
     private TileManager tileManager;
-
-    // Estados internos
-    private bool isFlipped = false;  // Baldosa actualmente volteada
-    private bool isLocked = false;   // Baldosa que no se puede volver a girar
+    private bool isFlipped = false;
+    private bool isLocked = false;
 
     private Quaternion startRotation;
     private Quaternion flippedRotation;
 
-    void Start()
+    public GameObject explosionPrefab;
+
+    // Nuevo: audio de la baldosa trampa
+    private AudioSource audioSource;
+
+    private void Start()
     {
         tileManager = FindAnyObjectByType<TileManager>();
-
         tileName = gameObject.name;
 
         startRotation = transform.rotation;
         flippedRotation = Quaternion.Euler(startRotation.eulerAngles + new Vector3(180f, 0f, 0f));
+
+        // Obtener AudioSource si existe
+        audioSource = GetComponent<AudioSource>();
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag("Player"))
-            return;
+        if (!other.CompareTag("Player")) return;
 
         PlayerController pc = other.GetComponent<PlayerController>();
-        if (pc == null)
-            return;
+        if (pc == null || !pc.isJumping) return;
 
-        if (!pc.isJumping)
+        if (isTrap)
+        {
+            StartCoroutine(TriggerTrap(pc));
             return;
+        }
 
-        if (isLocked)  // Si ya quedó bloqueada, no se voltea
-            return;
+        if (isLocked) return;
 
         if (!isFlipped)
         {
@@ -56,21 +56,40 @@ public class TileFlipOnJump : MonoBehaviour
         }
     }
 
-    // Resetea la baldosa solo si NO está bloqueada
+    private IEnumerator TriggerTrap(PlayerController pc)
+    {
+        pc.hasLost = true;
+
+        // Reproducir sonido de explosión de la baldosa
+        if (audioSource != null)
+        {
+            audioSource.Play();
+        }
+
+        // Instanciar efecto visual de explosión
+        if (explosionPrefab != null)
+        {
+            Instantiate(explosionPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
+        }
+
+        // Esperar un momento antes de mostrar derrota
+        yield return new WaitForSeconds(0.6f);
+
+        GameManager.Instance.MostrarDerrota();
+    }
+
     public void ResetTile()
     {
-        if (isLocked)
-            return;
+        if (isLocked) return;
 
         StartCoroutine(FlipAnimation(flippedRotation, startRotation));
         isFlipped = false;
     }
 
-    // Bloquea la baldosa para que quede destapada permanentemente
     public void LockTile()
     {
         isLocked = true;
-        isFlipped = true; // Aseguramos que quede volteada
+        isFlipped = true;
     }
 
     private IEnumerator FlipAnimation(Quaternion fromRot, Quaternion toRot)

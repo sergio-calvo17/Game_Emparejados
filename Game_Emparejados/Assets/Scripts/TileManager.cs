@@ -6,110 +6,98 @@ public class TileManager : MonoBehaviour
     private TileFlipOnJump firstTile = null;
     private TileFlipOnJump secondTile = null;
 
-    private bool checking = false; // Evita activar más de dos baldosas a la vez
+    private bool checking = false;
 
-    // Contador de pares encontrados
     public int pairsFound = 0;
-
-    // Cantidad total de pares (4 en tu 3x3 con 1 trampa)
     public int totalPairs = 4;
 
-    // Nuevo: referencia al GameManager
-    // (para poder avisarle cuando se gane)
     private GameManager gameManager;
 
     // -------------------------------
-    // NUEVO: sonidos del gameplay
+    // Sonidos
     // -------------------------------
     [Header("Sonidos de juego")]
-    public AudioSource sonidoVoltear;    // suena al voltear una baldosa
-    public AudioSource sonidoAcierto;    // suena cuando el par coincide
-    public AudioSource sonidoFallo;      // suena cuando el par NO coincide
+    public AudioSource sonidoVoltear;
+    public AudioSource sonidoAcierto;
+    public AudioSource sonidoFallo;
 
+    // -------------------------------
+    // Explosión para piso trampa
+    // -------------------------------
+    [Header("Explosión baldosa trampa")]
+    public GameObject explosionPrefab;
+
+    // Ajuste automático
+    public float explosionMultiplier = 0.9f;
+    // (1 = igual de grande que la baldosa. 0.9 la hace un poquito más pequeña)
 
     private void Start()
     {
-        // Buscar automáticamente el GameManager en la escena
         gameManager = GameManager.Instance;
     }
 
-    // Método que llama cada baldosa al voltearse
+    // ---------------------------------------------------------
+    // Se llama cuando una baldosa se voltea
+    // ---------------------------------------------------------
     public void RegisterTile(TileFlipOnJump tile)
     {
-        if (checking) return; // Evita interferencias
+        if (checking) return;
 
-        // --- NUEVO: sonido al voltear baldosa ---
         if (sonidoVoltear != null)
             sonidoVoltear.Play();
 
-        // Si es una baldosa trampa, la manejamos después
+        // --------- MANEJO DE BALDOSA TRAMPA ----------
         if (tile.isTrap)
         {
-            Debug.Log("Se piso una baldosa trampa.");
+            Debug.Log("Se pisó una baldosa trampa!");
+
+            CrearExplosion(tile);
+
+            StartCoroutine(DelayGameOver());
             return;
         }
+        // -------------------------------------------------
 
-        // Primera baldosa destapada
         if (firstTile == null)
         {
             firstTile = tile;
-            Debug.Log("Primera baldosa: " + firstTile.tileName);
             return;
         }
 
-        // Segunda baldosa destapada
         if (secondTile == null)
         {
             secondTile = tile;
-            Debug.Log("Segunda baldosa: " + secondTile.tileName);
-
-            // Bloqueamos nuevas activaciones mientras comparamos
             checking = true;
             StartCoroutine(CheckMatchDelayed());
         }
     }
 
-    // Espera un pequeño tiempo para que la animación termine antes de comparar
     private IEnumerator CheckMatchDelayed()
     {
         yield return new WaitForSeconds(0.5f);
-
         CheckMatch();
-
         checking = false;
     }
 
-    // Compara las dos baldosas
     private void CheckMatch()
     {
         if (AreTilesPair(firstTile.tileName, secondTile.tileName))
         {
-            Debug.Log("¡Coinciden! Quedan destapadas.");
-
             firstTile.LockTile();
             secondTile.LockTile();
 
-            // Sumar 1 par encontrado
             pairsFound++;
 
-            Debug.Log("Pares encontrados: " + pairsFound + "/" + totalPairs);
-
-            // --- NUEVO: sonido al acertar ---
             if (sonidoAcierto != null)
                 sonidoAcierto.Play();
 
-            // --- NUEVO: Avisar al GameManager si se encontraron todos ---
             if (pairsFound >= totalPairs)
             {
-                Debug.Log("¡Se encontraron todos los pares!");
-                gameManager.MostrarVictoria(); // Mostrar pantalla de victoria
+                gameManager.MostrarVictoria();
             }
         }
         else
         {
-            Debug.Log("No coinciden. Se vuelven a tapar.");
-
-            // --- NUEVO: sonido al fallar ---
             if (sonidoFallo != null)
                 sonidoFallo.Play();
 
@@ -121,7 +109,6 @@ public class TileManager : MonoBehaviour
         secondTile = null;
     }
 
-    // Define qué baldosas son pareja según los nombres
     private bool AreTilesPair(string name1, string name2)
     {
         if ((name1 == "piso circulo" && name2 == "piso circulo (1)") ||
@@ -140,13 +127,61 @@ public class TileManager : MonoBehaviour
             (name1 == "piso triangulo (1)" && name2 == "piso triangulo"))
             return true;
 
-        // piso trampa no tiene pareja
         return false;
     }
 
-    // Saber si ya se encontraron todos los pares
     public bool AllPairsFound()
     {
         return pairsFound >= totalPairs;
+    }
+
+    // ---------------------------------------------------------
+    // Crear EXPLOSIÓN del tamaño de la baldosa
+    // ---------------------------------------------------------
+    private void CrearExplosion(TileFlipOnJump tile)
+    {
+        if (explosionPrefab == null) return;
+
+        GameObject fx = Instantiate(explosionPrefab, tile.transform.position, Quaternion.identity);
+
+        // Tamaño REAL de la baldosa
+        Vector3 tileScale = tile.transform.localScale;
+
+        // Escala final
+        float escala = Mathf.Max(tileScale.x, tileScale.y) * explosionMultiplier;
+
+        fx.transform.localScale = new Vector3(escala, escala, escala);
+
+        // Si es ParticleSystem, escalar correctamente
+        ParticleSystem ps = fx.GetComponent<ParticleSystem>();
+        if (ps != null)
+        {
+            var main = ps.main;
+
+            // Tamaño de partículas
+            main.startSizeMultiplier = escala;
+
+            // Velocidad proporcional al tamaño
+            main.startSpeedMultiplier = escala * 2f;
+        }
+
+        // Destrucción automática basada en la duración real del sistema de partículas
+        float lifetime = 2.5f;
+
+        if (ps != null)
+        {
+            lifetime = ps.main.duration + ps.main.startLifetime.constantMax;
+        }
+
+        Destroy(fx, lifetime);
+    }
+
+    // ---------------------------------------------------------
+    // Delay antes de mostrar derrota (explosión)
+    // ---------------------------------------------------------
+    private IEnumerator DelayGameOver()
+    {
+        yield return new WaitForSeconds(0.6f);
+        gameManager.MostrarDerrota();
     }
 }

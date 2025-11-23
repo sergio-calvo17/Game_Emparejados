@@ -8,11 +8,13 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Hit
-  m_Shader: {fileID: -6465566751694194690, guid: 32a4a62f333515c4ebb502a656373f53, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 67dfcda17071f4a41be79c4049965e67, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _CFXR_DITHERED_SHADOWS_OFF
+  - _CFXR_GLOW_POW_P0
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -24,6 +26,14 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _DissolveTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DitherCustom:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _Texture2D:
         m_Texture: {fileID: 2800000, guid: afe9a1a5fbc69a745872b05508e6ae39, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -43,12 +53,27 @@ Material:
     m_Ints: []
     m_Floats:
     - _Boolean: 0
+    - _CFXR_DITHERED_SHADOWS: 0
+    - _CFXR_GLOW_POW: 0
+    - _DissolveSmooth: 0.1
     - _Dissolve_Noise: 50
+    - _DstBlend: 10
+    - _GlowMax: 1
+    - _GlowMin: 0
+    - _HdrMultiply: 2
+    - _InvertDissolveTex: 0
+    - _MaxValue: 10
     - _Offset_speed: 1
     - _Offset_speed_X: 0
     - _Offset_speed_Y: 0
     - _QueueControl: 0
     - _QueueOffset: 0
+    - _ShadowStrength: 1
+    - _SoftParticlesFadeDistanceFar: 1
+    - _SoftParticlesFadeDistanceNear: 0
+    - _SrcBlend: 5
+    - _UseDissolve: 0
+    - _UseSP: 0
     m_Colors:
     - _Color: {r: 16, g: 16, b: 16, a: 0}
     - _Tiling_offset: {r: 1, g: 1, b: 0, a: 0}
